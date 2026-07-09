@@ -1,7 +1,7 @@
 import time
 import requests
 
-BOT_TOKEN = "8775696477:AAEnN0Onmw09_m3UJBLPyGCg389yLR4LReI"
+BOT_TOKEN = "8775696477:AAHr21wXazX5fWUvdjOA1_QvmJIdmyvi4o8"
 CHANNEL_ID = -1003201511422
 API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
 
@@ -12,17 +12,17 @@ def send_welcome(chat_id):
         bot_info = requests.get(API_URL + "getMe").json()
         bot_username = bot_info["result"]["username"]
         admin_url = f"https://t.me/{bot_username}?startchannel=true&admin=post_messages+edit_messages+delete_messages"
-        
+
         text = "👋 **Welcome!**\n\nFiles ko bina caption ke channel me forward karne ke liye mujhe admin banayein:"
         reply_markup = {
             "inline_keyboard": [[{"text": "➕ Add Bot to Channel", "url": admin_url}]]
         }
-        
+
         requests.post(API_URL + "sendMessage", json={
             "chat_id": chat_id, "text": text, "parse_mode": "Markdown", "reply_markup": reply_markup
         })
     except Exception as e:
-        print(f"Start error: {e}")
+        print(f"Start error: {type(e).__name__}: {e}")
 
 def handle_media(message):
     try:
@@ -41,7 +41,7 @@ def handle_media(message):
             payload_key = "video"
         elif "photo" in message:
             method = "sendPhoto"
-            file_id = message["photo"][-1]["file_id"] # Best quality
+            file_id = message["photo"][-1]["file_id"]  # Best quality
             payload_key = "photo"
         elif "audio" in message:
             method = "sendAudio"
@@ -58,7 +58,7 @@ def handle_media(message):
                 "chat_id": CHANNEL_ID,
                 payload_key: file_id
             }).json()
-            
+
             if res.get("ok"):
                 requests.post(API_URL + "sendMessage", json={
                     "chat_id": chat_id, "text": "✅ Successfully Uploaded to Channel (Bina kisi text ke)!"
@@ -68,27 +68,38 @@ def handle_media(message):
                     "chat_id": chat_id, "text": f"❌ Failed: {res.get('description')}"
                 })
     except Exception as e:
-        print(f"Media upload error: {e}")
+        print(f"Media upload error: {type(e).__name__}: {e}")
 
 if __name__ == "__main__":
     offset = 0
     start_time = time.time()
-    
+
+    # Clear any pending/stuck updates from a previous overlapping run (avoids silent 409s)
+    try:
+        requests.get(API_URL + "getUpdates", params={"offset": -1, "timeout": 1}, timeout=5)
+    except Exception as e:
+        print(f"Initial clear failed: {type(e).__name__}: {e}")
+
     # 5 ghante ka lightweight performance runner loop
     while time.time() - start_time < 18000:
         try:
             response = requests.get(API_URL + "getUpdates", params={"offset": offset, "timeout": 30}, timeout=35).json()
-            if "result" in response:
-                for update in response["result"]:
-                    offset = update["update_id"] + 1
-                    if "message" in update:
-                        msg = update["message"]
-                        text = msg.get("text", "")
-                        
-                        if text.startswith("/start"):
-                            send_welcome(msg["chat"]["id"])
-                        else:
-                            handle_media(msg)
+
+            if not response.get("ok"):
+                print(f"getUpdates error: {response.get('description')}")
+                time.sleep(3)
+                continue
+
+            for update in response.get("result", []):
+                offset = update["update_id"] + 1
+                if "message" in update:
+                    msg = update["message"]
+                    text = msg.get("text", "")
+
+                    if text.startswith("/start"):
+                        send_welcome(msg["chat"]["id"])
+                    else:
+                        handle_media(msg)
         except Exception as e:
-            print(f"Network glitch, retrying... {e}")
+            print(f"Network glitch, retrying... {type(e).__name__}: {e}")
             time.sleep(2)
