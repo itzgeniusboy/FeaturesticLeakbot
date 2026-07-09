@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
   schedule:
-    - cron: '0 */5 * * *'
+    - cron: '0 */5 * * *' # Backup trigger agar kabhi loop tute
 
 jobs:
   run-bot-job:
@@ -32,7 +32,7 @@ jobs:
         python bot.py
 
     - name: Trigger Next Loop (24x7 Continuous)
-      if: always()
+      if: always() # Bot crash ho ya time khatam ho, naya loop start ho jayega
       run: |
         curl -X POST \
           -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
