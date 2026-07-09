@@ -1,0 +1,56 @@
+import time
+import telebot
+
+# Direct Credentials
+BOT_TOKEN = "8775696477:AAEnN0Onmw09_m3UJBLPyGCg389yLR4LReI"
+CHANNEL_ID = -1003201511422
+
+bot = telebot.TeleBot(BOT_TOKEN)
+
+print("Bot successfully start ho gaya hai...")
+
+@bot.message_handler(content_types=['document', 'video', 'photo', 'audio', 'voice'])
+def handle_incoming_media(message):
+    try:
+        caption = message.caption if message.caption else ""
+        
+        # 1. Documents / Files
+        if message.document:
+            bot.send_chat_action(CHANNEL_ID, 'upload_document')
+            bot.send_document(CHANNEL_ID, message.document.file_id, caption=caption)
+            
+        # 2. Videos
+        elif message.video:
+            bot.send_chat_action(CHANNEL_ID, 'upload_video')
+            bot.send_video(CHANNEL_ID, message.video.file_id, caption=caption)
+            
+        # 3. Photos
+        elif message.photo:
+            bot.send_chat_action(CHANNEL_ID, 'upload_photo')
+            bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=caption)
+            
+        # 4. Audio Files
+        elif message.audio:
+            bot.send_chat_action(CHANNEL_ID, 'upload_audio')
+            bot.send_audio(CHANNEL_ID, message.audio.file_id, caption=caption)
+
+        # 5. Voice Notes
+        elif message.voice:
+            bot.send_chat_action(CHANNEL_ID, 'upload_voice')
+            bot.send_voice(CHANNEL_ID, message.voice.file_id, caption=caption)
+
+        bot.reply_to(message, "✅ Channel par successfully upload ho gaya!")
+        
+    except Exception as e:
+        print(f"Error logic: {e}")
+        bot.reply_to(message, f"❌ Upload failed: {e}")
+
+if __name__ == "__main__":
+    # GitHub Action ke 6-hour limit ko handle karne ke liye 5.5 hours ka loop
+    start_time = time.time()
+    while time.time() - start_time < 19800: 
+        try:
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except Exception as e:
+            print(f"Polling crash protection: {e}")
+            time.sleep(5)
