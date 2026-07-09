@@ -29,7 +29,8 @@ jobs:
         BOT_TOKEN: "8775696477:AAEnN0Onmw09_m3UJBLPyGCg389yLR4LReI"
         CHANNEL_ID: "-1003201511422"
       run: |
-        python bot.py
+        # Current directory lock karke run karenge
+        python ./bot.py
 
     - name: Trigger Next Loop (24x7 Continuous)
       if: always()
