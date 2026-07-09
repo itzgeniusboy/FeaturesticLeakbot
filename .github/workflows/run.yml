@@ -4,8 +4,10 @@ on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
-  schedule:
-    - cron: '0 */4 * * *'
+
+concurrency:
+  group: telegram-bot-loop
+  cancel-in-progress: true
 
 jobs:
   run-bot-job:
