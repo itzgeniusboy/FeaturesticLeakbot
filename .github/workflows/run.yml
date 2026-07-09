@@ -24,9 +24,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyTelegramBotAPI
 
-    - name: Run Main Bot Script
+    - name: Find and Run Bot Script
       run: |
-        python bot.py
+        echo "=== Checking where bot.py is located ==="
+        find . -name "bot.py"
+        echo "========================================"
+        # Ye command pooriki pooris repository me bot.py dhoond kar use run kar degi
+        find . -name "bot.py" -exec python {} \;
 
     - name: Trigger Next Loop (24x7 Continuous)
       if: always()
