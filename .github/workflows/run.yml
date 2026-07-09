@@ -4,10 +4,8 @@ on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
-
-concurrency:
-  group: telegram-bot-loop
-  cancel-in-progress: true
+  schedule:
+    - cron: '0 */4 * * *'
 
 jobs:
   run-bot-job:
@@ -26,9 +24,74 @@ jobs:
         python -m pip install --upgrade pip
         pip install requests
 
-    - name: Find and Run Script
+    - name: Run Inline Bot Script
       run: |
-        find . -name "bot.py" -exec python {} \;
+        cat << 'EOF' > inline_bot.py
+        import time
+        import requests
+
+        BOT_TOKEN = "8775696477:AAEnN0Onmw09_m3UJBLPyGCg389yLR4LReI"
+        CHANNEL_ID = -1003201511422
+        API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
+
+        print("--- INLINE NATIVE BOT ENGINE STARTED ---")
+
+        def send_welcome(chat_id):
+            try:
+                bot_info = requests.get(API_URL + "getMe").json()
+                bot_username = bot_info["result"]["username"]
+                admin_url = f"https://t.me/{bot_username}?startchannel=true&admin=post_messages+edit_messages+delete_messages"
+                text = "👋 **Welcome!**\n\nFiles ko bina caption ke channel me forward karne ke liye mujhe admin banayein:"
+                reply_markup = {"inline_keyboard": [[{"text": "➕ Add Bot to Channel", "url": admin_url}]]}
+                requests.post(API_URL + "sendMessage", json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown", "reply_markup": reply_markup})
+            except Exception as e:
+                print(f"Start error: {e}")
+
+        def handle_media(message):
+            try:
+                chat_id = message["chat"]["id"]
+                file_id, method, payload_key = None, None, None
+
+                if "document" in message:
+                    method, file_id, payload_key = "sendDocument", message["document"]["file_id"], "document"
+                elif "video" in message:
+                    method, file_id, payload_key = "sendVideo", message["video"]["file_id"], "video"
+                elif "photo" in message:
+                    method, file_id, payload_key = "sendPhoto", message["photo"][-1]["file_id"], "photo"
+                elif "audio" in message:
+                    method, file_id, payload_key = "sendAudio", message["audio"]["file_id"], "audio"
+                elif "voice" in message:
+                    method, file_id, payload_key = "sendVoice", message["voice"]["file_id"], "voice"
+
+                if method and file_id:
+                    res = requests.post(API_URL + method, json={"chat_id": CHANNEL_ID, payload_key: file_id}).json()
+                    if res.get("ok"):
+                        requests.post(API_URL + "sendMessage", json={"chat_id": chat_id, "text": "✅ Successfully Uploaded to Channel!"})
+                    else:
+                        requests.post(API_URL + "sendMessage", json={"chat_id": chat_id, "text": f"❌ Failed: {res.get('description')}"})
+            except Exception as e:
+                print(f"Media error: {e}")
+
+        if __name__ == "__main__":
+            offset = 0
+            start_time = time.time()
+            while time.time() - start_time < 18000:
+                try:
+                    response = requests.get(API_URL + "getUpdates", params={"offset": offset, "timeout": 30}, timeout=35).json()
+                    if "result" in response:
+                        for update in response["result"]:
+                            offset = update["update_id"] + 1
+                            if "message" in update:
+                                msg = update["message"]
+                                if msg.get("text", "").startswith("/start"):
+                                    send_welcome(msg["chat"]["id"])
+                                else:
+                                    handle_media(msg)
+                except Exception as e:
+                    print(f"Glitch: {e}")
+                    time.sleep(2)
+        EOF
+        python inline_bot.py
 
     - name: Trigger Next Loop (24x7 Continuous)
       if: always()
