@@ -1,13 +1,17 @@
+import os
 import time
 import telebot
 
-# Direct Credentials
-BOT_TOKEN = "8775696477:AAEnN0Onmw09_m3UJBLPyGCg389yLR4LReI"
-CHANNEL_ID = -1003201511422
+# Fetching from Workflow Environment
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHANNEL_ID = int(os.getenv("CHANNEL_ID")) if os.getenv("CHANNEL_ID") else None
+
+if not BOT_TOKEN or not CHANNEL_ID:
+    print("Error: BOT_TOKEN ya CHANNEL_ID environment me nahi mila!")
+    exit(1)
 
 bot = telebot.TeleBot(BOT_TOKEN)
-
-print("Bot successfully start ho gaya hai...")
+print("Bot environments loaded successfully. Starting...")
 
 @bot.message_handler(content_types=['document', 'video', 'photo', 'audio', 'voice'])
 def handle_incoming_media(message):
@@ -46,9 +50,8 @@ def handle_incoming_media(message):
         bot.reply_to(message, f"❌ Upload failed: {e}")
 
 if __name__ == "__main__":
-    # GitHub Action ke 6-hour limit ko handle karne ke liye 5.5 hours ka loop
     start_time = time.time()
-    while time.time() - start_time < 19800: 
+    while time.time() - start_time < 19800: # 5.5 Hours loop
         try:
             bot.polling(none_stop=True, interval=0, timeout=20)
         except Exception as e:
