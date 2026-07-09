@@ -1,53 +1,94 @@
 import time
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import requests
 
-# Direct Credentials
 BOT_TOKEN = "8775696477:AAEnN0Onmw09_m3UJBLPyGCg389yLR4LReI"
 CHANNEL_ID = -1003201511422
+API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
 
-bot = telebot.TeleBot(BOT_TOKEN)
-print("--- BOT STARTED SUCCESSFULLY ---")
+print("--- NATIVE BOT ENGINE STARTED ---")
 
-# Start Command
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
+def send_welcome(chat_id):
     try:
-        bot_username = bot.get_me().username
-        markup = InlineKeyboardMarkup()
+        bot_info = requests.get(API_URL + "getMe").json()
+        bot_username = bot_info["result"]["username"]
         admin_url = f"https://t.me/{bot_username}?startchannel=true&admin=post_messages+edit_messages+delete_messages"
-        markup.add(InlineKeyboardButton("➕ Add Bot to Channel", url=admin_url))
         
-        bot.reply_to(message, "👋 **Welcome!**\n\nFiles ko bina caption ke channel me forward karne ke liye mujhe admin banayein:", parse_mode='Markdown', reply_markup=markup)
+        text = "👋 **Welcome!**\n\nFiles ko bina caption ke channel me forward karne ke liye mujhe admin banayein:"
+        reply_markup = {
+            "inline_keyboard": [[{"text": "➕ Add Bot to Channel", "url": admin_url}]]
+        }
+        
+        requests.post(API_URL + "sendMessage", json={
+            "chat_id": chat_id, "text": text, "parse_mode": "Markdown", "reply_markup": reply_markup
+        })
     except Exception as e:
-        print(f"Start Error: {e}")
+        print(f"Start error: {e}")
 
-# Media Handler (Strictly File Only - No Text)
-@bot.message_handler(content_types=['document', 'video', 'photo', 'audio', 'voice'])
-def handle_incoming_media(message):
+def handle_media(message):
     try:
-        if message.document:
-            bot.send_document(CHANNEL_ID, message.document.file_id, caption=None)
-        elif message.video:
-            bot.send_video(CHANNEL_ID, message.video.file_id, caption=None)
-        elif message.photo:
-            bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=None)
-        elif message.audio:
-            bot.send_audio(CHANNEL_ID, message.audio.file_id, caption=None)
-        elif message.voice:
-            bot.send_voice(CHANNEL_ID, message.voice.file_id, caption=None)
+        chat_id = message["chat"]["id"]
+        file_id = None
+        method = None
+        payload_key = None
 
-        bot.reply_to(message, "✅ Successfully Uploaded to Channel!")
+        if "document" in message:
+            method = "sendDocument"
+            file_id = message["document"]["file_id"]
+            payload_key = "document"
+        elif "video" in message:
+            method = "sendVideo"
+            file_id = message["video"]["file_id"]
+            payload_key = "video"
+        elif "photo" in message:
+            method = "sendPhoto"
+            file_id = message["photo"][-1]["file_id"] # Best quality
+            payload_key = "photo"
+        elif "audio" in message:
+            method = "sendAudio"
+            file_id = message["audio"]["file_id"]
+            payload_key = "audio"
+        elif "voice" in message:
+            method = "sendVoice"
+            file_id = message["voice"]["file_id"]
+            payload_key = "voice"
+
+        if method and file_id:
+            # Strictly NO caption forwarded (caption=None / Empty)
+            res = requests.post(API_URL + method, json={
+                "chat_id": CHANNEL_ID,
+                payload_key: file_id
+            }).json()
+            
+            if res.get("ok"):
+                requests.post(API_URL + "sendMessage", json={
+                    "chat_id": chat_id, "text": "✅ Successfully Uploaded to Channel (Bina kisi text ke)!"
+                })
+            else:
+                requests.post(API_URL + "sendMessage", json={
+                    "chat_id": chat_id, "text": f"❌ Failed: {res.get('description')}"
+                })
     except Exception as e:
-        print(f"Upload Error: {e}")
-        bot.reply_to(message, f"❌ Failed: {e}")
+        print(f"Media upload error: {e}")
 
 if __name__ == "__main__":
-    # GitHub Action timeout logic
+    offset = 0
     start_time = time.time()
-    while time.time() - start_time < 18000: # 5 ghante ka strict execution
+    
+    # 5 ghante ka lightweight performance runner loop
+    while time.time() - start_time < 18000:
         try:
-            bot.polling(none_stop=True, timeout=10)
+            response = requests.get(API_URL + "getUpdates", params={"offset": offset, "timeout": 30}, timeout=35).json()
+            if "result" in response:
+                for update in response["result"]:
+                    offset = update["update_id"] + 1
+                    if "message" in update:
+                        msg = update["message"]
+                        text = msg.get("text", "")
+                        
+                        if text.startswith("/start"):
+                            send_welcome(msg["chat"]["id"])
+                        else:
+                            handle_media(msg)
         except Exception as e:
-            print(f"Restarting Polling due to: {e}")
-            time.sleep(5)
+            print(f"Network glitch, retrying... {e}")
+            time.sleep(2)
