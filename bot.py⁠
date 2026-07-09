@@ -2,43 +2,33 @@ import os
 import time
 import telebot
 
-# Fetching from Workflow Environment
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID")) if os.getenv("CHANNEL_ID") else None
 
 if not BOT_TOKEN or not CHANNEL_ID:
-    print("Error: BOT_TOKEN ya CHANNEL_ID environment me nahi mila!")
+    print("Error: Token ya Channel ID nahi mili!")
     exit(1)
 
 bot = telebot.TeleBot(BOT_TOKEN)
-print("Bot environments loaded successfully. Starting...")
+print("Bot started successfully in GitHub Actions...")
 
 @bot.message_handler(content_types=['document', 'video', 'photo', 'audio', 'voice'])
 def handle_incoming_media(message):
     try:
         caption = message.caption if message.caption else ""
         
-        # 1. Documents / Files
         if message.document:
             bot.send_chat_action(CHANNEL_ID, 'upload_document')
             bot.send_document(CHANNEL_ID, message.document.file_id, caption=caption)
-            
-        # 2. Videos
         elif message.video:
             bot.send_chat_action(CHANNEL_ID, 'upload_video')
             bot.send_video(CHANNEL_ID, message.video.file_id, caption=caption)
-            
-        # 3. Photos
         elif message.photo:
             bot.send_chat_action(CHANNEL_ID, 'upload_photo')
             bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=caption)
-            
-        # 4. Audio Files
         elif message.audio:
             bot.send_chat_action(CHANNEL_ID, 'upload_audio')
             bot.send_audio(CHANNEL_ID, message.audio.file_id, caption=caption)
-
-        # 5. Voice Notes
         elif message.voice:
             bot.send_chat_action(CHANNEL_ID, 'upload_voice')
             bot.send_voice(CHANNEL_ID, message.voice.file_id, caption=caption)
@@ -46,14 +36,15 @@ def handle_incoming_media(message):
         bot.reply_to(message, "✅ Channel par successfully upload ho gaya!")
         
     except Exception as e:
-        print(f"Error logic: {e}")
+        print(f"Error: {e}")
         bot.reply_to(message, f"❌ Upload failed: {e}")
 
 if __name__ == "__main__":
     start_time = time.time()
-    while time.time() - start_time < 19800: # 5.5 Hours loop
+    # 5.5 ghante baad script band hogi taaki GitHub khud naya loop chala sake
+    while time.time() - start_time < 19800: 
         try:
             bot.polling(none_stop=True, interval=0, timeout=20)
         except Exception as e:
-            print(f"Polling crash protection: {e}")
+            print(f"Polling error: {e}")
             time.sleep(5)
