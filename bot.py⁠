@@ -1,80 +1,53 @@
-import os
 import time
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID")) if os.getenv("CHANNEL_ID") else None
+# Direct Credentials
+BOT_TOKEN = "8775696477:AAEnN0Onmw09_m3UJBLPyGCg389yLR4LReI"
+CHANNEL_ID = -1003201511422
 
-if not BOT_TOKEN or not CHANNEL_ID:
-    print("❌ Critical Error: BOT_TOKEN ya CHANNEL_ID environment me nahi mila!")
-    exit(1)
+bot = telebot.TeleBot(BOT_TOKEN)
+print("--- BOT STARTED SUCCESSFULLY ---")
 
-# Threading false rakha h taaki Actions me crash na ho
-bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
-print("🚀 Bot starting engine setup...")
-
-# Start Command handler (Buttons for permissions)
+# Start Command
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     try:
-        print(f"📩 /start command received from user: {message.from_user.id}")
         bot_username = bot.get_me().username
         markup = InlineKeyboardMarkup()
-        
         admin_url = f"https://t.me/{bot_username}?startchannel=true&admin=post_messages+edit_messages+delete_messages"
         markup.add(InlineKeyboardButton("➕ Add Bot to Channel", url=admin_url))
         
-        welcome_text = (
-            "👋 **Welcome!**\n\n"
-            "Main aapke bhejey huye files/videos/photos ko bina kisi caption ya forward tag ke direct aapke **Channel** par upload karunga.\n\n"
-            "✨ Niche diye gaye button par click karke mujhe apne channel me admin banayein:"
-        )
-        bot.reply_to(message, welcome_text, parse_mode='Markdown', reply_markup=markup)
-        print("✅ Welcome message successfully sent.")
+        bot.reply_to(message, "👋 **Welcome!**\n\nFiles ko bina caption ke channel me forward karne ke liye mujhe admin banayein:", parse_mode='Markdown', reply_markup=markup)
     except Exception as e:
-        print(f"❌ Error in start command: {e}")
+        print(f"Start Error: {e}")
 
-# Media Handler (Strictly targeting Channel with Clean Files)
+# Media Handler (Strictly File Only - No Text)
 @bot.message_handler(content_types=['document', 'video', 'photo', 'audio', 'voice'])
 def handle_incoming_media(message):
-    print(f"📦 Media received! Type: {message.content_type} from {message.from_user.id}")
     try:
-        # Har media format strictly CHANNEL_ID par hi upload hoga bina text ke
         if message.document:
-            bot.send_chat_action(CHANNEL_ID, 'upload_document')
             bot.send_document(CHANNEL_ID, message.document.file_id, caption=None)
-            
         elif message.video:
-            bot.send_chat_action(CHANNEL_ID, 'upload_video')
             bot.send_video(CHANNEL_ID, message.video.file_id, caption=None)
-            
         elif message.photo:
-            bot.send_chat_action(CHANNEL_ID, 'upload_photo')
             bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=None)
-            
         elif message.audio:
-            bot.send_chat_action(CHANNEL_ID, 'upload_audio')
             bot.send_audio(CHANNEL_ID, message.audio.file_id, caption=None)
-
         elif message.voice:
-            bot.send_chat_action(CHANNEL_ID, 'upload_voice')
             bot.send_voice(CHANNEL_ID, message.voice.file_id, caption=None)
 
-        bot.reply_to(message, "✅ File aapke channel par successfully transfer ho gayi hai (Bina kisi text ke).")
-        print("✅ Media successfully forwarded to channel.")
+        bot.reply_to(message, "✅ Successfully Uploaded to Channel!")
     except Exception as e:
-        print(f"❌ Error transferring media to channel: {e}")
-        bot.reply_to(message, f"❌ Upload failed: {e}\n\n*Make sure bot is ADMIN in your channel with post permissions.*")
+        print(f"Upload Error: {e}")
+        bot.reply_to(message, f"❌ Failed: {e}")
 
 if __name__ == "__main__":
-    print("🟢 Bot is now successfully polling and listening for messages...")
+    # GitHub Action timeout logic
     start_time = time.time()
-    
-    # 5 Hours strict loop for GitHub runner protection
-    while time.time() - start_time < 18000: 
+    while time.time() - start_time < 18000: # 5 ghante ka strict execution
         try:
-            bot.polling(none_stop=True, interval=1, timeout=60)
+            bot.polling(none_stop=True, timeout=10)
         except Exception as e:
-            print(f"⚠️ Polling crashed, restarting... Error: {e}")
+            print(f"Restarting Polling due to: {e}")
             time.sleep(5)
