@@ -1,6 +1,7 @@
 import os
 import time
 import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID")) if os.getenv("CHANNEL_ID") else None
@@ -10,41 +11,69 @@ if not BOT_TOKEN or not CHANNEL_ID:
     exit(1)
 
 bot = telebot.TeleBot(BOT_TOKEN)
-print("Bot started successfully in GitHub Actions...")
+print("Bot running with modifications (No Caption + Setup Button)...")
 
+# 1. Start Command with Admin Add Button & Auto-Permissions Request
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bot_username = bot.get_me().username
+    markup = InlineKeyboardMarkup()
+    
+    # Ye link bot ko seedhe channel me lekar jayega aur post_messages + edit_messages ki permission mangega
+    admin_url = f"https://t.me/{bot_username}?startchannel=true&admin=post_messages+edit_messages+delete_messages"
+    
+    markup.add(InlineKeyboardButton("➕ Add Bot to Channel", url=admin_url))
+    
+    welcome_text = (
+        "👋 **Welcome!**\n\n"
+        "Main aapke bhejey huye files/videos/photos ko bina kisi caption ya forward tag ke direct aapke channel par upload karunga.\n\n"
+        "✨ Niche diye gaye button par click karke mujhe apne channel me add karein:"
+    )
+    bot.reply_to(message, welcome_text, parse_mode='Markdown', reply_markup=markup)
+
+# 2. Media Handler (Captions completely removed before sending)
 @bot.message_handler(content_types=['document', 'video', 'photo', 'audio', 'voice'])
 def handle_incoming_media(message):
     try:
-        caption = message.caption if message.caption else ""
+        # Note: 'caption=None' ensures strict file-only delivery (text stripped completely)
         
+        # Documents / Files
         if message.document:
             bot.send_chat_action(CHANNEL_ID, 'upload_document')
-            bot.send_document(CHANNEL_ID, message.document.file_id, caption=caption)
+            bot.send_document(CHANNEL_ID, message.document.file_id, caption=None)
+            
+        # Videos
         elif message.video:
             bot.send_chat_action(CHANNEL_ID, 'upload_video')
-            bot.send_video(CHANNEL_ID, message.video.file_id, caption=caption)
+            bot.send_video(CHANNEL_ID, message.video.file_id, caption=None)
+            
+        # Photos
         elif message.photo:
             bot.send_chat_action(CHANNEL_ID, 'upload_photo')
-            bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=caption)
+            bot.send_photo(CHANNEL_ID, message.photo[-1].file_id, caption=None)
+            
+        # Audio Files
         elif message.audio:
             bot.send_chat_action(CHANNEL_ID, 'upload_audio')
-            bot.send_audio(CHANNEL_ID, message.audio.file_id, caption=caption)
+            bot.send_audio(CHANNEL_ID, message.audio.file_id, caption=None)
+
+        # Voice Notes
         elif message.voice:
             bot.send_chat_action(CHANNEL_ID, 'upload_voice')
-            bot.send_voice(CHANNEL_ID, message.voice.file_id, caption=caption)
+            bot.send_voice(CHANNEL_ID, message.voice.file_id, caption=None)
 
-        bot.reply_to(message, "✅ Channel par successfully upload ho gaya!")
+        bot.reply_to(message, "✅ File channel par transfer ho gayi hai (Bina kisi text ke).")
         
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error transferring media: {e}")
         bot.reply_to(message, f"❌ Upload failed: {e}")
 
 if __name__ == "__main__":
     start_time = time.time()
-    # 5.5 ghante baad script band hogi taaki GitHub khud naya loop chala sake
+    # 5.5 Hours Action Keep-Alive Loop
     while time.time() - start_time < 19800: 
         try:
             bot.polling(none_stop=True, interval=0, timeout=20)
         except Exception as e:
-            print(f"Polling error: {e}")
+            print(f"Polling anomaly protected: {e}")
             time.sleep(5)
